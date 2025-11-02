@@ -114,6 +114,7 @@ stage('Deploy') {
     failure {
       script {
         echo "❌ CI/CD failed"
+        }
       }
     }
   }
