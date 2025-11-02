@@ -99,20 +99,20 @@ pipeline {
   post {
     success {
       script {
-        sh '''
+        sh """
           curl -X POST -H "Content-Type: application/json" \
           --data "{\"attachments\": [{\"color\": \"#36a64f\", \"text\": \"✅ *NextFlix CI/CD:* Deployment succeeded on ${DEPLOY_TAG.toUpperCase()}!\"}]}"
           ${SLACK_WEBHOOK}
-        '''
+        """
       }
     }
     failure {
       script {
-        sh '''
+        sh """
           curl -X POST -H "Content-Type: application/json" \
           --data "{\"text\":\"❌ Deployment failed on ${DEPLOY_TAG.toUpperCase()}!\"}" \
           ${SLACK_WEBHOOK}
-        '''
+        """
       }
     }
   }
