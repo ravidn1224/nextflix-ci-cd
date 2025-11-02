@@ -2,7 +2,7 @@ pipeline {
     agent any
 
     environment {
-        DOCKERHUB_CREDENTIALS = credentials('dockerhub-token')
+        DOCKERHUB_TOKEN = credentials('dockerhub-token')
         DOCKER_USER = "ravidocker285"
         TMDB_KEY = credentials('TMDB_KEY')
         DOCKER_IMAGE = "ravidocker285/nextflix-app"
