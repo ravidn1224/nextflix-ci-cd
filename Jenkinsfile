@@ -68,41 +68,43 @@ pipeline {
     }
 
     stage('Deploy') {
-      steps {
-        script {
-          if (env.CHANGE_ID) {
-            echo "PR detected → Deploying to STAGING"
-            sshagent(['staging-ssh']) {
-              sh """
-                ssh -o StrictHostKeyChecking=no ubuntu@${STAGING_HOST} '
-                  docker pull ${DOCKER_IMAGE}:staging &&
-                  docker stop nextflix || true &&
-                  docker rm nextflix || true &&
-                  echo "API_KEY=${TMDB_KEY}" > .env &&
-                  docker run -d --name nextflix -p 3000:3000 --env-file .env ${DOCKER_IMAGE}:staging
-                '
-              """
-            }
-          } else if (env.BRANCH_NAME == 'main' && currentBuild.rawBuild.getCauses().toString().contains('PullRequest')) {
-            echo "Merge to main → Deploying to PRODUCTION"
-            sshagent(['prod-ssh']) {
-              sh """
-                ssh -o StrictHostKeyChecking=no ubuntu@${PROD_HOST} '
-                  docker pull ${DOCKER_IMAGE}:prod &&
-                  docker stop nextflix || true &&
-                  docker rm nextflix || true &&
-                  echo "API_KEY=${TMDB_KEY}" > .env &&
-                  docker run -d --name nextflix -p 3000:3000 --env-file .env ${DOCKER_IMAGE}:prod
-                '
-              """
-            }
-          } else {
-            echo "Push to main (not merge) → skipping production deploy"
-          }
+  steps {
+    script {
+      if (env.CHANGE_ID) {
+        echo "PR detected → Deploying to STAGING"
+        sshagent([SSH_STAGING]) {
+          sh """
+            ssh -o StrictHostKeyChecking=no ubuntu@${STAGING_HOST} '
+              docker pull ${DOCKER_IMAGE}:staging &&
+              docker stop nextflix || true &&
+              docker rm nextflix || true &&
+              echo "API_KEY=${TMDB_KEY}" > .env &&
+              docker run -d --name nextflix -p 3000:3000 --env-file .env ${DOCKER_IMAGE}:staging
+            '
+          """
         }
+
+   
+      } else if (env.BRANCH_NAME == 'main' && !env.CHANGE_ID) {
+        echo "Merge to main → Deploying to PRODUCTION"
+        sshagent([SSH_PROD]) {
+          sh """
+            ssh -o StrictHostKeyChecking=no ubuntu@${PROD_HOST} '
+              docker pull ${DOCKER_IMAGE}:prod &&
+              docker stop nextflix || true &&
+              docker rm nextflix || true &&
+              echo "API_KEY=${TMDB_KEY}" > .env &&
+              docker run -d --name nextflix -p 3000:3000 --env-file .env ${DOCKER_IMAGE}:prod
+            '
+          """
+        }
+      } else {
+        echo "No deploy condition matched. Skipping."
       }
     }
   }
+}
+}
 
   post {
     success {
@@ -116,4 +118,4 @@ pipeline {
       }
     }
   } 
-}
+} 
