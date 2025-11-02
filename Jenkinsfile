@@ -12,7 +12,7 @@ pipeline {
 
         stage('Clone Repository') {
             steps {
-                git branch: 'main', url: 'https://github.com/dor-amar/nextflix.git'
+                git branch: 'main', url: 'https://github.com/ravidn1224/nextflix-ci-cd.git'
             }
         }
 
