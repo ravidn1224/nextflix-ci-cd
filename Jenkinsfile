@@ -2,6 +2,9 @@ pipeline {
   agent any
 
   environment {
+    // --- Slack ---
+     SLACK_WEBHOOK = credentials('SLACK_WEBHOOK')
+
     // --- Docker / Registry ---
     DOCKER_USER   = "ravidocker285"
     DOCKER_IMAGE  = "${DOCKER_USER}/nextflix-app"
@@ -110,11 +113,21 @@ pipeline {
     success {
       script {
         echo "✅ CI/CD success: ${env.DEPLOY_TAG}"
+        sh '''
+        curl -X POST -H "Content-type: application/json" \
+        --data "{\"attachments\": [{\"color\": \"#36a64f\", \"text\": \"✅ *NextFlix CI/CD:* Deployment succeeded on ${DEPLOY_TAG.toUpperCase()}!\"}]}"
+        ${SLACK_WEBHOOK}
+        '''
       }
     }
     failure {
       script {
         echo "❌ CI/CD failed"
+        sh '''
+        curl -X POST -H "Content-type: application/json" \
+        --data "{\"text\":\"❌ Deployment failed on ${DEPLOY_TAG.toUpperCase()}!\"}" \
+        ${SLACK_WEBHOOK}
+        '''
       }
     }
   } 
