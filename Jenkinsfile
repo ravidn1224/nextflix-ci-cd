@@ -67,7 +67,7 @@ pipeline {
       }
     }
 
-    stage('Deploy') {
+stage('Deploy') {
   steps {
     script {
       if (env.CHANGE_ID) {
@@ -102,6 +102,7 @@ pipeline {
     }
   }
 }
+
 
 
   post {
