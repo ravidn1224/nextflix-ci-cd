@@ -2,22 +2,13 @@ pipeline {
   agent any
 
   environment {
-    // --- Slack ---
-     SLACK_WEBHOOK = credentials('SLACK_WEBHOOK')
-
-    // --- Docker / Registry ---
     DOCKER_USER   = "ravidocker285"
     DOCKER_IMAGE  = "${DOCKER_USER}/nextflix-app"
     DOCKERHUB_TOKEN = credentials('dockerhub-token')
-
-    // --- App Secret (TMDB) ---
     TMDB_KEY = credentials('TMDB_KEY')
-
-    // --- SSH credentials IDs in Jenkins ---
     SSH_STAGING = 'staging-ssh'
     SSH_PROD    = 'prod-ssh'
-
-    // --- Targets (replace with your real IPs) ---
+    SLACK_WEBHOOK = credentials('SLACK_WEBHOOK')
     STAGING_HOST = '35.159.70.150'
     PROD_HOST    = '3.120.140.201'
   }
@@ -34,7 +25,6 @@ pipeline {
       steps {
         script {
           env.SHORT_SHA = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-
           if (env.CHANGE_ID) {
             env.TAG = "pr-${env.CHANGE_ID}-${env.SHORT_SHA}"
             env.DEPLOY_TAG = "staging"
@@ -42,7 +32,6 @@ pipeline {
             env.TAG = "main-${env.SHORT_SHA}"
             env.DEPLOY_TAG = "prod"
           }
-
           echo "Computed TAG=${env.TAG}, DEPLOY_TAG=${env.DEPLOY_TAG}"
         }
       }
@@ -71,64 +60,60 @@ pipeline {
     }
 
     stage('Deploy') {
-  steps {
-    script {
-      if (env.CHANGE_ID) {
-        echo "PR detected → Deploying to STAGING"
-        sshagent([SSH_STAGING]) {
-          sh """
-            ssh -o StrictHostKeyChecking=no ubuntu@${STAGING_HOST} '
-              docker pull ${DOCKER_IMAGE}:staging &&
-              docker stop nextflix || true &&
-              docker rm nextflix || true &&
-              echo "TMDB_KEY=${TMDB_KEY}" > .env &&
-              docker run -d --name nextflix -p 3000:3000 --env-file .env ${DOCKER_IMAGE}:staging
-            '
-          """
+      steps {
+        script {
+          if (env.CHANGE_ID) {
+            echo "PR detected → Deploying to STAGING"
+            sshagent([SSH_STAGING]) {
+              sh """
+                ssh -o StrictHostKeyChecking=no ubuntu@${STAGING_HOST} '
+                  docker pull ${DOCKER_IMAGE}:staging &&
+                  docker stop nextflix || true &&
+                  docker rm nextflix || true &&
+                  echo "TMDB_KEY=${TMDB_KEY}" > .env &&
+                  docker run -d --name nextflix -p 3000:3000 --env-file .env ${DOCKER_IMAGE}:staging
+                '
+              """
+            }
+          } else if (env.BRANCH_NAME == 'main' && !env.CHANGE_ID) {
+            echo "Merge to main → Deploying to PRODUCTION"
+            sshagent([SSH_PROD]) {
+              sh """
+                ssh -o StrictHostKeyChecking=no ubuntu@${PROD_HOST} '
+                  docker pull ${DOCKER_IMAGE}:prod &&
+                  docker stop nextflix || true &&
+                  docker rm nextflix || true &&
+                  echo "TMDB_KEY=${TMDB_KEY}" > .env &&
+                  docker run -d --name nextflix -p 3000:3000 --env-file .env ${DOCKER_IMAGE}:prod
+                '
+              """
+            }
+          } else {
+            echo "No deploy condition matched. Skipping."
+          }
         }
-
-   
-      } else if (env.BRANCH_NAME == 'main' && !env.CHANGE_ID) {
-        echo "Merge to main → Deploying to PRODUCTION"
-        sshagent([SSH_PROD]) {
-          sh """
-            ssh -o StrictHostKeyChecking=no ubuntu@${PROD_HOST} '
-              docker pull ${DOCKER_IMAGE}:prod &&
-              docker stop nextflix || true &&
-              docker rm nextflix || true &&
-              echo "TMDB_KEY=${TMDB_KEY}" > .env &&
-              docker run -d --name nextflix -p 3000:3000 --env-file .env ${DOCKER_IMAGE}:prod
-            '
-          """
-        }
-      } else {
-        echo "No deploy condition matched. Skipping."
       }
     }
   }
-}
-}
 
   post {
     success {
       script {
-        echo "✅ CI/CD success: ${env.DEPLOY_TAG}"
         sh '''
-        curl -X POST -H "Content-type: application/json" \
-        --data "{\"attachments\": [{\"color\": \"#36a64f\", \"text\": \"✅ *NextFlix CI/CD:* Deployment succeeded on ${DEPLOY_TAG.toUpperCase()}!\"}]}"
-        ${SLACK_WEBHOOK}
+          curl -X POST -H "Content-Type: application/json" \
+          --data "{\"attachments\": [{\"color\": \"#36a64f\", \"text\": \"✅ *NextFlix CI/CD:* Deployment succeeded on ${DEPLOY_TAG.toUpperCase()}!\"}]}"
+          ${SLACK_WEBHOOK}
         '''
       }
     }
     failure {
       script {
-        echo "❌ CI/CD failed"
         sh '''
-        curl -X POST -H "Content-type: application/json" \
-        --data "{\"text\":\"❌ Deployment failed on ${DEPLOY_TAG.toUpperCase()}!\"}" \
-        ${SLACK_WEBHOOK}
+          curl -X POST -H "Content-Type: application/json" \
+          --data "{\"text\":\"❌ Deployment failed on ${DEPLOY_TAG.toUpperCase()}!\"}" \
+          ${SLACK_WEBHOOK}
         '''
       }
     }
-  } 
-} 
+  }
+}
