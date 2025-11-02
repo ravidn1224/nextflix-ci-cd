@@ -78,7 +78,7 @@ pipeline {
               docker pull ${DOCKER_IMAGE}:staging &&
               docker stop nextflix || true &&
               docker rm nextflix || true &&
-              echo "API_KEY=${TMDB_KEY}" > .env &&
+              echo "TMDB_KEY=${TMDB_KEY}" > .env &&
               docker run -d --name nextflix -p 3000:3000 --env-file .env ${DOCKER_IMAGE}:staging
             '
           """
